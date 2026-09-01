@@ -6,31 +6,30 @@ on:
 jobs:
   download:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Download vJan26 database in 4 segments
+      - name: Download and upload bt2 index in segments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          mkdir -p /tmp/db
-          cd /tmp/db
-          URL="https://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/mpa_vJan26_CHOCOPhlAnSGB_202605.tar"
+          URL="https://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/bowtie2_indexes/mpa_vJan26_CHOCOPhlAnSGB_202605_bt2.tar"
+          TOTAL=41742510080
           SEG=$((1900 * 1024 * 1024))
-          for i in 0 1 2 3; do
+          N=$(( (TOTAL + SEG - 1) / SEG ))
+          echo "total segments: $N"
+          mkdir -p /tmp/bt2
+          cd /tmp/bt2
+          gh release create metaphlan-vJan26-bt2 --title "MetaPhlAn vJan26 bt2 index" --notes "bowtie2 index segments" 2>/dev/null || echo "release created or exists"
+          for i in $(seq 0 $((N-1))); do
+            f=part_$(printf %03d $i)
             start=$((i * SEG))
             end=$((start + SEG - 1))
-            curl -sS --fail --connect-timeout 30 --retry 5 --retry-delay 5 -r ${start}-${end} -o part_0$i "$URL" &
+            echo "=== downloading segment $i ==="
+            curl -sS --fail --connect-timeout 30 --retry 5 --retry-delay 5 -r ${start}-${end} -o $f "$URL"
+            echo "segment $i size: $(stat -c%s $f)"
+            gh release upload metaphlan-vJan26-bt2 $f --clobber
+            rm -f $f
           done
-          wait
-          echo "=== downloaded segments ==="
-          ls -la
-          total=0
-          for f in part_*; do sz=$(stat -c%s $f); echo "$f: $sz bytes"; total=$((total+sz)); done
-          echo "TOTAL: $total bytes (expect 6014115840)"
-
-      - name: Upload segments to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: metaphlan-vJan26
-          name: "MetaPhlAn vJan26 database"
-          files: /tmp/db/part_*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "ALL DONE"
