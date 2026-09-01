@@ -1,0 +1,36 @@
+name: download-metaphlan-db
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download vJan26 database in 4 segments
+        run: |
+          set -e
+          mkdir -p /tmp/db
+          cd /tmp/db
+          URL="https://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/mpa_vJan26_CHOCOPhlAnSGB_202605.tar"
+          SEG=$((1900 * 1024 * 1024))
+          for i in 0 1 2 3; do
+            start=$((i * SEG))
+            end=$((start + SEG - 1))
+            curl -sS --fail --connect-timeout 30 --retry 5 --retry-delay 5 -r ${start}-${end} -o part_0$i "$URL" &
+          done
+          wait
+          echo "=== downloaded segments ==="
+          ls -la
+          total=0
+          for f in part_*; do sz=$(stat -c%s $f); echo "$f: $sz bytes"; total=$((total+sz)); done
+          echo "TOTAL: $total bytes (expect 6014115840)"
+
+      - name: Upload segments to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: metaphlan-vJan26
+          name: "MetaPhlAn vJan26 database"
+          files: /tmp/db/part_*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
