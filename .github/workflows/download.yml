@@ -9,7 +9,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download mapping only
+      - name: Download mapping and upload split
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -17,5 +17,6 @@ jobs:
           cd /tmp
           curl -sS -L --fail --retry 5 -o mapping.tar.gz "http://huttenhower.sph.harvard.edu/humann_data/full_mapping_v201901b.tar.gz"
           ls -la mapping.tar.gz
-          gh release upload humann-db mapping.tar.gz --clobber -R wuyi1111111111/metaphlan-db
+          split -b 1900M -d mapping.tar.gz mapping_part_
+          for f in mapping_part_*; do gh release upload humann-db $f --clobber -R wuyi1111111111/metaphlan-db; done
           echo "MAPPING DONE"
