@@ -1,4 +1,4 @@
-name: download-metaphlan-db
+name: download-humann-db
 
 on:
   workflow_dispatch:
@@ -9,27 +9,29 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download and upload bt2 index in segments
+      - name: Download HUMAnN databases and upload
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          URL="https://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/bowtie2_indexes/mpa_vJan26_CHOCOPhlAnSGB_202605_bt2.tar"
-          TOTAL=41742510080
+          mkdir -p /tmp/humann
+          cd /tmp/humann
           SEG=$((1900 * 1024 * 1024))
-          N=$(( (TOTAL + SEG - 1) / SEG ))
-          echo "total segments: $N"
-          mkdir -p /tmp/bt2
-          cd /tmp/bt2
-          gh release create metaphlan-vJan26-bt2 --title "MetaPhlAn vJan26 bt2 index" --notes "bowtie2 index segments" -R wuyi1111111111/metaphlan-db 2>/dev/null || echo "release created or exists"
-          for i in $(seq 0 $((N-1))); do
-            f=part_$(printf %03d $i)
-            start=$((i * SEG))
-            end=$((start + SEG - 1))
-            echo "=== downloading segment $i ==="
-            curl -sS --fail --connect-timeout 30 --retry 5 --retry-delay 5 -r ${start}-${end} -o $f "$URL"
-            echo "segment $i size: $(stat -c%s $f)"
-            gh release upload metaphlan-vJan26-bt2 $f --clobber -R wuyi1111111111/metaphlan-db
-            rm -f $f
-          done
-          echo "ALL DONE"
+          gh release create humann-db --title "HUMAnN databases" -R wuyi1111111111/metaphlan-db 2>/dev/null || echo "release exists"
+          # chocophlan
+          echo "=== chocophlan ==="
+          curl -sS -L --fail --retry 5 -o choco.tar.gz "https://huttenhower.sph.harvard.edu/humann_databases/chocophlan/full_chocophlan.v201901_v31.tar.gz"
+          split -b 1900M -d choco.tar.gz choco_part_
+          for f in choco_part_*; do echo "upload $f"; gh release upload humann-db $f --clobber -R wuyi1111111111/metaphlan-db; done
+          rm -f choco.tar.gz choco_part_*
+          # uniref90
+          echo "=== uniref90 ==="
+          curl -sS -L --fail --retry 5 -o uniref.tar.gz "https://huttenhower.sph.harvard.edu/humann_databases/uniref/uniref90_annotated_v201901b_full.tar.gz"
+          split -b 1900M -d uniref.tar.gz uniref_part_
+          for f in uniref_part_*; do echo "upload $f"; gh release upload humann-db $f --clobber -R wuyi1111111111/metaphlan-db; done
+          rm -f uniref.tar.gz uniref_part_*
+          # utility_mapping
+          echo "=== utility_mapping ==="
+          curl -sS -L --fail --retry 5 -o mapping.tar.gz "https://huttenhower.sph.harvard.edu/humann_databases/utility_mapping/full_mapping_v201901b.tar.gz"
+          gh release upload humann-db mapping.tar.gz --clobber -R wuyi1111111111/metaphlan-db
+          echo "ALL HUMANN DB DONE"
