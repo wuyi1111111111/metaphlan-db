@@ -9,26 +9,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download HUMAnN databases and upload
+      - name: Download mapping only
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          mkdir -p /tmp/humann
-          cd /tmp/humann
-          SEG=$((1900 * 1024 * 1024))
-          gh release create humann-db --title "HUMAnN databases" -R wuyi1111111111/metaphlan-db 2>/dev/null || echo "release exists"
-          echo "=== chocophlan ==="
-          curl -sS -L --fail --retry 5 -o choco.tar.gz "http://huttenhower.sph.harvard.edu/humann_data/chocophlan/full_chocophlan.v201901_v31.tar.gz"
-          split -b 1900M -d choco.tar.gz choco_part_
-          for f in choco_part_*; do gh release upload humann-db $f --clobber -R wuyi1111111111/metaphlan-db; done
-          rm -f choco.tar.gz choco_part_*
-          echo "=== uniref90 ==="
-          curl -sS -L --fail --retry 5 -o uniref.tar.gz "http://huttenhower.sph.harvard.edu/humann_data/uniprot/uniref_annotated/uniref90_annotated_v201901b_full.tar.gz"
-          split -b 1900M -d uniref.tar.gz uniref_part_
-          for f in uniref_part_*; do gh release upload humann-db $f --clobber -R wuyi1111111111/metaphlan-db; done
-          rm -f uniref.tar.gz uniref_part_*
-          echo "=== mapping ==="
+          cd /tmp
           curl -sS -L --fail --retry 5 -o mapping.tar.gz "http://huttenhower.sph.harvard.edu/humann_data/full_mapping_v201901b.tar.gz"
+          ls -la mapping.tar.gz
           gh release upload humann-db mapping.tar.gz --clobber -R wuyi1111111111/metaphlan-db
-          echo "ALL HUMANN DB DONE"
+          echo "MAPPING DONE"
